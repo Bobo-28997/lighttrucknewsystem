@@ -131,12 +131,8 @@ def prepare_one_ref_df(ref_df, ref_contract_col, required_cols, prefix):
     valid_cols = [col for col in cols_to_extract_unique if col in ref_df.columns]
     std_df = ref_df[valid_cols].copy()
     
-    # --- (修改点：在预处理中直接 * 12) ---
-    if prefix == 'fk' and '租赁期限' in required_cols:
-        col_to_multiply = find_col(std_df, '租赁期限')
-        if col_to_multiply:
-            st.info("ℹ️ 正在转换 'fk' 表的 '租赁期限' (年 -> 月)...")
-            std_df[col_to_multiply] = pd.to_numeric(std_df[col_to_multiply], errors='coerce') * 12
+    # --- (修改点：* 12 逻辑已被移除) ---
+    # (原有的 if prefix == 'fk' and '租赁期限' in required_cols: ... 块已被删除)
 
     std_df['__KEY__'] = normalize_contract_key(std_df[ref_contract_col])
     std_df = std_df.rename(columns=col_mapping)
@@ -360,7 +356,7 @@ def audit_sheet_vec(sheet_name, main_file, all_std_dfs, mapping_rules_vec):
     return main_df.drop(columns=['__ROW_IDX__', '__KEY__']), total_errors
 
 # =====================================
-# 🛠️ (修改) 文件读取 & 预处理 (V2 - 统一使用 "提成" sheet)
+# 🛠️ (修改) 文件读取 & 预处理 (V3 - 使用 "提成" sheet 并更新映射)
 # =====================================
 main_file = find_file(uploaded_files, "项目提成")
 ec_file = find_file(uploaded_files, "二次明细")
@@ -374,9 +370,7 @@ ec_df = pd.read_excel(ec_file)
 product_df = pd.read_excel(product_file)
 fk_xls = pd.ExcelFile(fk_file)
 
-# --- VVVV (【核心修改】从这里开始) VVVV ---
-
-# 2. 查找所有包含 "提成" 的 sheet
+# --- VVVV (【核心修改】加载 "提成" sheets) VVVV ---
 commission_sheets = [s for s in fk_xls.sheet_names if "提成" in s]
 
 if not commission_sheets:
@@ -385,26 +379,21 @@ if not commission_sheets:
 
 st.info(f"ℹ️ 正在从 '放款明细' 加载 {len(commission_sheets)} 个 '提成' sheet...")
 
-# 3. 读取所有 "提成" sheet 并合并
 commission_df_list = [pd.read_excel(fk_xls, sheet_name=s) for s in commission_sheets]
 fk_commission_df = pd.concat(commission_df_list, ignore_index=True)
 
-# 4. (新) 将 fk_df 和 commission_df 都指向这个合并后的 DataFrame
+# 将 fk_df 和 commission_df 都指向这个合并后的 DataFrame
 fk_df = fk_commission_df         # <--- 用于字段验证
 commission_df = fk_commission_df # <--- 用于漏填检查
-
 # --- ^^^^ (修改结束) ^^^^ ---
-
 
 # ---- 找到所有参考表的合同列 ----
 contract_col_ec = find_col(ec_df, "合同")
-contract_col_fk = find_col(fk_df, "合同") # (现在使用合并后的 "提成" df)
-contract_col_comm = find_col(commission_df, "合同") # (现在也使用合并后的 "提成" df)
+contract_col_fk = find_col(fk_df, "合同")
+contract_col_comm = find_col(commission_df, "合同")
 contract_col_product = find_col(product_df, "合同")
 
-
 # 2. (修改) 定义向量化映射规则
-# (这部分保持不变)
 mapping_rules_vec = {
     "起租日期": [
         ("ref_ec_起租日_商", 'date', 0, 1),
@@ -412,8 +401,12 @@ mapping_rules_vec = {
     ],
     "租赁本金": [("ref_fk_租赁本金", 'num', 0, 1)],
     "收益率": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
-    "操作人": [("ref_fk_客户经理", 'text', 0, 1)],
-    "客户经理": [("ref_fk_客户经理", 'text', 0, 1)],
+    
+    # --- VVVV (【核心修改】映射到 "提报人员") VVVV ---
+    "操作人": [("ref_fk_提报人员", 'text', 0, 1)],
+    "客户经理": [("ref_fk_提报人员", 'text', 0, 1)],
+    # --- ^^^^ (修改结束) ^^^^ ---
+    
     "城市经理": [("ref_fk_城市经理", 'text', 0, 1)],
     "完成二次交接时间": [("ref_ec_出本流程时间", 'date', 0, 1)],
     "年化MIN": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
@@ -421,9 +414,12 @@ mapping_rules_vec = {
 }
 
 # 3. (修改) 预处理所有参考 DF
-# (这部分保持不变)
 ec_cols = ["起租日_商", "出本流程时间"]
-fk_cols = ["租赁本金", "客户经理", "城市经理", "租赁期限"]
+
+# --- VVVV (【核心修改】使用 "提报人员") VVVV ---
+fk_cols = ["租赁本金", "提报人员", "城市经理", "租赁期限"] # <--- "客户经理" 已改为 "提报人员"
+# --- ^^^^ (修改结束) ^^^^ ---
+
 product_cols = ["起租日_商", "XIRR_商_起租"]
 
 ec_std = prepare_one_ref_df(ec_df, contract_col_ec, ec_cols, "ec")
