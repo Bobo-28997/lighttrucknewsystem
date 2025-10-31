@@ -250,7 +250,11 @@ def audit_sheet_vec(sheet_name, main_file, all_std_dfs, mapping_rules_vec):
             continue 
         
         status.text(f"检查「{sheet_name}」: {main_kw}...")
-        
+        
+        # --- VVVV (【修复】添加丢失的行) VVVV ---
+        field_error_mask = pd.Series(False, index=merged_df.index)
+        # --- ^^^^ (修复结束) ^^^^ ---
+        
         for (ref_col, compare_type, tol, mult) in comparisons:
             if ref_col not in merged_df.columns:
                 continue 
