@@ -360,36 +360,51 @@ def audit_sheet_vec(sheet_name, main_file, all_std_dfs, mapping_rules_vec):
     return main_df.drop(columns=['__ROW_IDX__', '__KEY__']), total_errors
 
 # =====================================
-# 🛠️ (修改) 文件读取 & 预处理
+# 🛠️ (修改) 文件读取 & 预处理 (V2 - 统一使用 "提成" sheet)
 # =====================================
 main_file = find_file(uploaded_files, "项目提成")
 ec_file = find_file(uploaded_files, "二次明细")
 fk_file = find_file(uploaded_files, "放款明细")
 product_file = find_file(uploaded_files, "产品台账")
-# (移除 overdue_file)
 
 st.info("ℹ️ 正在读取并预处理参考文件...")
 
 # 1. 加载所有参考 DF
 ec_df = pd.read_excel(ec_file)
-fk_xls = pd.ExcelFile(fk_file)
-fk_df = pd.read_excel(fk_xls, sheet_name=[s for s in fk_xls.sheet_names if "桐威" in s][0])
 product_df = pd.read_excel(product_file)
-# (移除 overdue_df)
+fk_xls = pd.ExcelFile(fk_file)
 
-# ---- 新增提成sheet提取 ----
+# --- VVVV (【核心修改】从这里开始) VVVV ---
+
+# 2. 查找所有包含 "提成" 的 sheet
 commission_sheets = [s for s in fk_xls.sheet_names if "提成" in s]
-commission_df = pd.read_excel(fk_xls, sheet_name=commission_sheets[0]) if commission_sheets else None
+
+if not commission_sheets:
+    st.error("❌ 在 '放款明细' 文件中未找到任何包含 '提成' 的sheet！程序已停止。")
+    st.stop()
+
+st.info(f"ℹ️ 正在从 '放款明细' 加载 {len(commission_sheets)} 个 '提成' sheet...")
+
+# 3. 读取所有 "提成" sheet 并合并
+commission_df_list = [pd.read_excel(fk_xls, sheet_name=s) for s in commission_sheets]
+fk_commission_df = pd.concat(commission_df_list, ignore_index=True)
+
+# 4. (新) 将 fk_df 和 commission_df 都指向这个合并后的 DataFrame
+fk_df = fk_commission_df         # <--- 用于字段验证
+commission_df = fk_commission_df # <--- 用于漏填检查
+
+# --- ^^^^ (修改结束) ^^^^ ---
+
 
 # ---- 找到所有参考表的合同列 ----
 contract_col_ec = find_col(ec_df, "合同")
-contract_col_fk = find_col(fk_df, "合同")
-contract_col_comm = find_col(commission_df, "合同") if commission_df is not None else None
+contract_col_fk = find_col(fk_df, "合同") # (现在使用合并后的 "提成" df)
+contract_col_comm = find_col(commission_df, "合同") # (现在也使用合并后的 "提成" df)
 contract_col_product = find_col(product_df, "合同")
-# (移除 contract_col_overdue)
+
 
 # 2. (修改) 定义向量化映射规则
-# 格式: { "主表列名": [ (参考列表名, 比较类型, 容差, 乘数), ... ] }
+# (这部分保持不变)
 mapping_rules_vec = {
     "起租日期": [
         ("ref_ec_起租日_商", 'date', 0, 1),
@@ -399,32 +414,26 @@ mapping_rules_vec = {
     "收益率": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
     "操作人": [("ref_fk_客户经理", 'text', 0, 1)],
     "客户经理": [("ref_fk_客户经理", 'text', 0, 1)],
-    # "产品": [("ref_product_产品名称_商", 'text', 0, 1)], # <--- 已移除
-    "城市经理": [("ref_fk_城市经理", 'text', 0, 1)], # <--- 已修改 (从 overdue 改为 fk)
-    
-    # --- VVVV (新添加的规则) VVVV ---
+    "城市经理": [("ref_fk_城市经理", 'text', 0, 1)],
     "完成二次交接时间": [("ref_ec_出本流程时间", 'date', 0, 1)],
     "年化MIN": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
-    "年限": [("ref_fk_租赁期限", 'num_term', 0, 0)] # (tol 和 mult 在 compare_series_vec 中硬编码)
+    "年限": [("ref_fk_租赁期限", 'num_term', 0, 0)]
 }
 
 # 3. (修改) 预处理所有参考 DF
-# 从 mapping_rules_vec 中提取所有需要的列
-ec_cols = ["起租日_商", "出本流程时间"] # <--- 已添加
-fk_cols = ["租赁本金", "客户经理", "城市经理", "租赁期限"] # <--- 已添加
-product_cols = ["起租日_商", "XIRR_商_起租"] # <--- 已移除 "产品名称_商"
-# (移除 overdue_cols)
+# (这部分保持不变)
+ec_cols = ["起租日_商", "出本流程时间"]
+fk_cols = ["租赁本金", "客户经理", "城市经理", "租赁期限"]
+product_cols = ["起租日_商", "XIRR_商_起租"]
 
 ec_std = prepare_one_ref_df(ec_df, contract_col_ec, ec_cols, "ec")
 fk_std = prepare_one_ref_df(fk_df, contract_col_fk, fk_cols, "fk")
 product_std = prepare_one_ref_df(product_df, contract_col_product, product_cols, "product")
-# (移除 overdue_std)
 
 all_std_dfs = {
     "ec": ec_std,
     "fk": fk_std,
     "product": product_std,
-    # (移除 overdue)
 }
 
 st.success("✅ 参考文件预处理完成。")
