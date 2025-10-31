@@ -396,7 +396,7 @@ contract_col_product = find_col(product_df, "合同")
 # 2. (修改) 定义向量化映射规则
 mapping_rules_vec = {
     "起租日期": [
-        ("ref_product_起租日_商", 'date', 0, 1)
+        ("ref_ec_起租日_商", 'date', 0, 1)
     ],
     "租赁本金": [("ref_fk_租赁本金", 'num', 0, 1)],
     "收益率": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
