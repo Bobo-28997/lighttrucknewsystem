@@ -373,7 +373,7 @@ st.info("ℹ️ 正在读取并预处理参考文件...")
 # 1. 加载所有参考 DF
 ec_df = pd.read_excel(ec_file)
 fk_xls = pd.ExcelFile(fk_file)
-fk_df = pd.read_excel(fk_xls, sheet_name=[s for s in fk_xls.sheet_names if "本司" in s][0])
+fk_df = pd.read_excel(fk_xls, sheet_name=[s for s in fk_xls.sheet_names if "桐威" in s][0])
 product_df = pd.read_excel(product_file)
 # (移除 overdue_df)
 
