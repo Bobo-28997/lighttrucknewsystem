@@ -251,19 +251,33 @@ def audit_sheet_vec(sheet_name, main_file, all_std_dfs, mapping_rules_vec):
         
         status.text(f"检查「{sheet_name}」: {main_kw}...")
         
-        field_error_mask = pd.Series(False, index=merged_df.index)
-        
         for (ref_col, compare_type, tol, mult) in comparisons:
-            if ref_col not in merged_df.columns:
-                continue 
-            
-            s_main = merged_df[main_col]
-            s_ref = merged_df[ref_col]
-            
-            # (注意：这里的 mult 参数现在只用于旧的 'num' 类型, 'num_term' 的乘法已在预处理中完成)
-            errors_mask = compare_series_vec(s_main, s_ref, compare_type, tol, mult)
-            
-            field_error_mask |= errors_mask
+            if ref_col not in merged_df.columns:
+                continue 
+            
+            s_main = merged_df[main_col]
+            s_ref = merged_df[ref_col]
+
+            # --- VVVV (【新】城市经理 "空/0" 跳过逻辑) VVVV ---
+            skip_mask = pd.Series(False, index=merged_df.index) # Default: don't skip
+            
+            if main_kw == "城市经理":
+                # 检查参考值 (s_ref) 是否为 "空" 或 0
+                # 1. 检查物理 NaN
+                na_mask = pd.isna(s_ref)
+                # 2. 检查字符串空值 (包括 '0' 和 '0.0')
+                str_val = s_ref.astype(str).str.strip().str.lower()
+                str_mask = str_val.isin(["", "nan", "none", "null", "0", "0.0"])
+                
+                skip_mask = na_mask | str_mask
+            # --- ^^^^ (新逻辑结束) ^^^^ ---
+            
+            errors_mask = compare_series_vec(s_main, s_ref, compare_type, tol, mult)
+            
+            # (新) 应用跳过逻辑
+            final_errors_mask = errors_mask & ~skip_mask
+            
+            field_error_mask |= final_errors_mask
         
         if field_error_mask.any():
             total_errors += field_error_mask.sum()
