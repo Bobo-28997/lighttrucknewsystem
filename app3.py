@@ -1,5 +1,5 @@
 # =====================================
-# Streamlit App: 人事用“提成项目 & 二次项目 & 平台工 & 独立架构 & 低价值”自动审核（V2 - 新规则版）
+# Streamlit App: 人事用“项目提成 & 二次项目 & 平台工 & 独立架构 & 低价值”自动审核（V2 - 新规则版）
 # - 移除 "权责发生" 和 "超期明细"
 # - 新增 "完成二次交接时间" vs "出本流程时间" (日期)
 # - 新增 "年化MIN" vs "XIRR_商_起租" (数值)
@@ -24,12 +24,12 @@ st.image("image/app2image.drawio.png")
 # ========== 上传文件 ==========
 # (修改点：文件数 5 -> 4, 移除 "超期明细")
 uploaded_files = st.file_uploader(
-    "请上传文件名中包含以下字段的文件：提成项目、放款明细、二次明细、产品台账。最后誊写，需检的表为提成项目表。",
+    "请上传文件名中包含以下字段的文件：项目提成、放款明细、二次明细、产品台账。最后誊写，需检的表为项目提成表。",
     type="xlsx", accept_multiple_files=True
 )
 
 if not uploaded_files or len(uploaded_files) < 4:
-    st.warning("⚠️ 请上传所有 4 个文件（提成项目、二次明细、放款明细、产品台账）")
+    st.warning("⚠️ 请上传所有 4 个文件（项目提成、二次明细、放款明细、产品台账）")
     st.stop()
 else:
     st.success("✅ 文件上传完成")
@@ -362,7 +362,7 @@ def audit_sheet_vec(sheet_name, main_file, all_std_dfs, mapping_rules_vec):
 # =====================================
 # 🛠️ (修改) 文件读取 & 预处理
 # =====================================
-main_file = find_file(uploaded_files, "提成项目")
+main_file = find_file(uploaded_files, "项目提成")
 ec_file = find_file(uploaded_files, "二次明细")
 fk_file = find_file(uploaded_files, "放款明细")
 product_file = find_file(uploaded_files, "产品台账")
