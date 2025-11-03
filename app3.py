@@ -417,7 +417,7 @@ mapping_rules_vec = {
         ("ref_ec_起租日_商", 'date', 0, 1)
     ],
     "租赁本金": [("ref_fk_租赁本金", 'num', 0, 1)],
-    "收益率": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
+    "收益率": [("ref_fk_XIRR", 'num', 0.005, 1)],
     
     # --- VVVV (【核心修改】映射到 "提报人员") VVVV ---
     "操作人": [("ref_fk_提报人员", 'text', 0, 1)],
@@ -426,7 +426,7 @@ mapping_rules_vec = {
     
     "城市经理": [("ref_fk_城市经理", 'text', 0, 1)],
     "完成二次交接时间": [("ref_ec_出本流程时间", 'date', 0, 1)],
-    "年化MIN": [("ref_product_XIRR_商_起租", 'num', 0.005, 1)],
+    "年化MIN": [("ref_product_年化", 'num', 0.005, 1)],
     "年限": [("ref_fk_租赁期限", 'num_term', 0, 0)]
 }
 
@@ -434,10 +434,10 @@ mapping_rules_vec = {
 ec_cols = ["起租日_商", "出本流程时间"]
 
 # --- VVVV (【核心修改】使用 "提报人员") VVVV ---
-fk_cols = ["租赁本金", "提报人员", "城市经理", "租赁期限"] # <--- "客户经理" 已改为 "提报人员"
+fk_cols = ["租赁本金", "提报人员", "城市经理", "租赁期限", "XIRR"] # <--- "客户经理" 已改为 "提报人员"
 # --- ^^^^ (修改结束) ^^^^ ---
 
-product_cols = ["起租日_商", "XIRR_商_起租"]
+product_cols = ["年化"]
 
 ec_std = prepare_one_ref_df(ec_df, contract_col_ec, ec_cols, "ec")
 fk_std = prepare_one_ref_df(fk_df, contract_col_fk, fk_cols, "fk")
